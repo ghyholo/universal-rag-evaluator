@@ -1,58 +1,85 @@
-# Universal RAG Evaluator
+<div align="center">
 
-[中文](#中文说明) · [English](#english)
+<h1>Universal RAG Evaluator</h1>
 
-**Current release: v0.2.1**
+<p><strong>别只问“RAG 得了多少分”，更要知道它为什么答错。</strong></p>
 
-A framework-agnostic, research-grade evaluation toolkit for Retrieval-Augmented Generation systems.
+<p>
+一个面向研究与工程实践的通用 RAG 评测工具箱。<br />
+不绑定框架，不要求连接你的模型或向量数据库，只需要导出 JSONL 即可开始评测。
+</p>
 
-It accepts offline JSONL exports from **any RAG stack**—LlamaIndex, LangChain, Haystack, custom Python services, Java/Go backends, or production logs—and evaluates retrieval, answer quality, grounding, citations, abstention, temporal validity, robustness, latency, token usage, cost, and statistical significance.
+[![CI](https://github.com/ghyholo/universal-rag-evaluator/actions/workflows/ci.yml/badge.svg)](https://github.com/ghyholo/universal-rag-evaluator/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-blue)](https://www.python.org/)
+[![License](https://img.shields.io/badge/License-MIT-green)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.2.1-orange)](CHANGELOG.md)
 
-> The evaluator does not require access to your model or vector database. Your RAG system only needs to export one row per query.
+[中文说明](#中文说明) · [English](#english)
 
-## Why this project
-
-A single answer score cannot tell you why a RAG system failed. Universal RAG Evaluator separates the pipeline into measurable stages:
-
-```text
-Query → Retrieval → Context selection → Generation → Claims → Citations
-          │                 │               │          │
-       Recall/MRR      noise/time       completeness  support
-```
-
-It also supports the most useful diagnostic experiment for RAG:
-
-- **Base**: answer without external context.
-- **Oracle**: answer with gold evidence.
-- **Retrieved**: answer with the system's real retrieval output.
-
-This distinguishes generator limitations from retrieval failure and context harm.
+</div>
 
 ---
 
 # 中文说明
 
-## 主要能力
+## 它解决什么问题？
 
-| 评测层级 | 指标与功能 |
+一个 RAG 系统回答错了，原因可能完全不同：
+
+- 检索阶段根本没有找到正确证据；
+- 找到了证据，但上下文里混入了大量噪声或过期内容；
+- 模型看到了证据，却没有正确使用；
+- 答案看起来合理，但实际上没有证据支持；
+- 系统应该拒答，却仍然给出了一个“像真的”答案。
+
+只看一个最终答案分数，很难判断问题到底出在哪里。
+
+**Universal RAG Evaluator 会把 RAG 流程拆开评测：**
+
+```text
+问题
+  ↓
+检索 ──→ 上下文选择 ──→ 生成答案 ──→ Claim ──→ 引用
+  │           │              │           │         │
+Recall/MRR   噪声/时间性    完整性      忠实性    证据支持
+```
+
+它适合：
+
+- 正在做 RAG 论文实验，需要可复现评测流程的人；
+- 想比较 BM25、Dense、Hybrid、Reranker、HyDE 等方案的人；
+- 想知道问题出在召回侧还是回答侧的开发者；
+- 需要同时关注质量、延迟、Token 和成本的工程团队。
+
+---
+
+## 你可以评测什么？
+
+| 评测维度 | 主要内容 |
 |---|---|
-| 召回侧 | Hit@K、Recall@K、Precision@K、MRR、nDCG@K |
-| 回答侧 | Claim Precision / Recall / F1、Exact Match、完整性 |
-| 证据侧 | Faithfulness、Hallucination Rate、Citation Precision / Recall / F1 |
-| 拒答 | 正确拒答、错误拒答、无证据强行回答 |
-| 时间性 | Temporal Precision、Outdated Rate、Temporal Claim Accuracy |
-| 鲁棒性 | 干扰文档比例、Base / Oracle / Retrieved 三条件诊断 |
-| 工程指标 | 总延迟、分阶段延迟、P50/P95、Token、估算成本 |
-| 实验统计 | Paired bootstrap 95% CI、sign-flip test、效应量、Holm 修正 |
-| 分层分析 | 按领域、语言、难度、问题类型等 slices 自动汇总 |
-| Judge 校准 | 模型 Judge 与人工标签的 Accuracy、F1、Cohen's κ |
+| 🔎 检索质量 | Hit@K、Recall@K、Precision@K、MRR、nDCG@K |
+| ✍️ 回答质量 | Claim Precision / Recall / F1、Exact Match、完整性 |
+| 🧾 证据与引用 | Faithfulness、Hallucination Rate、Citation Precision / Recall / F1 |
+| 🙅 拒答能力 | 正确拒答、错误拒答、无证据强行回答 |
+| 🕒 时间正确性 | Temporal Precision、Outdated Rate、Temporal Claim Accuracy |
+| 🧪 鲁棒性 | 干扰文档比例、Base / Oracle / Retrieved 三条件诊断 |
+| ⚙️ 工程表现 | 总延迟、分阶段延迟、P50/P95、Token、估算成本 |
+| 📊 实验统计 | Paired bootstrap、sign-flip test、Cohen's dz、Holm 修正 |
+| 🧩 分层分析 | 按领域、语言、难度、问题类型等 slice 自动汇总 |
+| 🤖 Judge 校准 | Accuracy、Precision、Recall、F1、Cohen's κ |
 
-## 1. 安装
+> 核心评测器不会自动调用外部 LLM。你可以先完成完全离线、可复现的评测，再按需要接入人工标签或经过校准的 Model Judge。
 
-需要 Python 3.10 或更高版本。
+---
+
+## 3 分钟快速开始
+
+### 1. 克隆并安装
 
 ```bash
-# 克隆项目后进入目录
+git clone https://github.com/ghyholo/universal-rag-evaluator.git
+cd universal-rag-evaluator
+
 python -m venv .venv
 
 # macOS / Linux
@@ -65,13 +92,13 @@ python -m pip install --upgrade pip
 python -m pip install -e .
 ```
 
-检查 CLI：
+检查是否安装成功：
 
 ```bash
 rageval --help
 ```
 
-## 2. 最快运行示例
+### 2. 运行内置示例
 
 ```bash
 rageval validate examples/gold.jsonl examples/run_a.jsonl --strict
@@ -84,110 +111,78 @@ rageval evaluate \
   --strict
 ```
 
-一次评测会产生三个文件：
+### 3. 查看结果
+
+一次评测会生成三类文件：
 
 ```text
-results/run_a.json                 汇总指标、分层结果和复现 manifest
-results/run_a.per_query.jsonl      每个问题的全部指标
-results/run_a.md                   可直接阅读的 Markdown 报告
+results/run_a.json                 汇总指标、分层结果和复现信息
+results/run_a.per_query.jsonl      每个问题的详细指标
+results/run_a.md                   适合直接阅读的 Markdown 报告
 ```
 
-## 3. 接入任意 RAG 系统
+这样既能看总体结果，也能继续定位具体失败样本。
 
-评测器读取两个 UTF-8 JSONL 文件，通过 `query_id` 对齐。
+---
+
+## 如何接入自己的 RAG 系统？
+
+你不需要修改现有 RAG 架构，也不需要让评测器连接你的数据库。
+
+只要准备两个 JSONL 文件：
 
 ### Gold benchmark
 
-每行是一道问题：
+每一行描述一道问题及其正确证据：
 
 ```json
-{
-  "query_id": "q-001",
-  "question": "谁创立了示例公司？",
-  "answerable": true,
-  "gold_doc_ids": ["doc-17"],
-  "required_claims": ["Alice 创立了示例公司"],
-  "reference_answer": "Alice 创立了示例公司。",
-  "as_of": "2026-06-01",
-  "slices": {
-    "domain": "company_history",
-    "language": "zh",
-    "difficulty": "easy"
-  }
-}
+{"query_id":"q-001","question":"谁创立了示例公司？","answerable":true,"gold_doc_ids":["doc-17"],"required_claims":["Alice 创立了示例公司"]}
 ```
 
 ### System run
 
-每行是 RAG 系统对同一问题的一次完整运行：
+每一行保存系统实际输出：
 
 ```json
-{
-  "query_id": "q-001",
-  "answer": "Alice 创立了示例公司。[1]",
-  "retrieved": [
-    {
-      "doc_id": "doc-17",
-      "rank": 1,
-      "score": 0.91,
-      "text": "Alice founded ExampleCo in 2019.",
-      "temporally_valid": true,
-      "outdated": false,
-      "distractor": false
-    }
-  ],
-  "predicted_claims": [
-    {
-      "text": "Alice 创立了示例公司",
-      "supported": true,
-      "relevant": true,
-      "temporal_correct": true
-    }
-  ],
-  "citations": [
-    {
-      "claim": "Alice 创立了示例公司",
-      "doc_ids": ["doc-17"],
-      "supported": true
-    }
-  ],
-  "abstained": false,
-  "latency_ms": 420,
-  "stage_latency_ms": {
-    "retrieval": 38,
-    "rerank": 52,
-    "generation": 330
-  },
-  "prompt_tokens": 550,
-  "completion_tokens": 38,
-  "estimated_cost_usd": 0.0021
-}
+{"query_id":"q-001","answer":"Alice 创立了示例公司。[1]","retrieved":[{"doc_id":"doc-17","rank":1}]}
 ```
 
-完整字段说明见 [`docs/data-contract.md`](docs/data-contract.md)。近两年论文方法与本项目功能的对应关系见 [`docs/research-methods.md`](docs/research-methods.md)。
+最基础的接入只需要：
 
-### 最低接入要求
+- `query_id`
+- `answer`
+- `retrieved`
 
-你的系统最少只需导出：
+之后可以逐步补充 Claim、引用、时间标签、延迟、Token 和成本，不需要一开始就准备所有字段。
 
-```json
-{"query_id":"q-001","answer":"...","retrieved":[{"doc_id":"doc-17","rank":1}]}
-```
+更完整的字段说明：
 
-只有 `query_id`、`answer` 和 `retrieved` 是 run 的基础字段。Claim、引用、时间和成本字段可以逐步补充。评测器只计算有可用标签的指标，不会强制调用 LLM Judge。
+- [数据协议](docs/data-contract.md)
+- [接入适配器示例](docs/adapters.md)
 
-## 4. 比较两个 RAG 系统
+---
 
-先分别评测：
+## 四个最常用的工作流
+
+### 1. 评测一个系统
 
 ```bash
-rageval evaluate examples/gold.jsonl examples/run_a.jsonl --output results/a.json
-rageval evaluate examples/gold.jsonl examples/run_b.jsonl --output results/b.json
+rageval evaluate \
+  benchmark.jsonl \
+  system_run.jsonl \
+  --ks 1,3,5,10 \
+  --output results/system.json \
+  --strict
 ```
 
-再进行逐问题配对比较：
+适用于：查看一个系统当前的召回、回答、引用、拒答和成本表现。
+
+### 2. 比较两个系统
 
 ```bash
+rageval evaluate benchmark.jsonl run_a.jsonl --output results/a.json
+rageval evaluate benchmark.jsonl run_b.jsonl --output results/b.json
+
 rageval compare \
   results/a.per_query.jsonl \
   results/b.per_query.jsonl \
@@ -196,27 +191,25 @@ rageval compare \
   --output results/a_vs_b.json
 ```
 
-输出包括：
+输出会包含：
 
-- 每个指标实际使用的配对问题数和因缺失标签排除的问题数；
-- 两个系统的均值；
-- `B - A` 的平均差值；
+- 两个系统的平均结果；
+- `B - A` 的逐问题平均差值；
 - paired bootstrap 95% 置信区间；
 - exact / Monte Carlo sign-flip p 值；
-- paired effect size（Cohen's dz）；
-- 多指标比较的 Holm 校正 p 值。
+- Cohen's dz 效应量；
+- Holm 多重比较修正；
+- 每个指标实际使用和排除的配对样本数。
 
-同一 benchmark 上比较系统时，应使用配对检验，而不是把两组问题当成互不相关样本。
+### 3. 判断问题出在召回还是回答
 
-## 5. 定位问题来自召回还是回答
+准备三个条件：
 
-准备三份已经评测后的 per-query 文件：
-
-```text
-base.per_query.jsonl        不给模型上下文
-oracle.per_query.jsonl      只给模型 gold evidence
-retrieved.per_query.jsonl   给模型真实检索结果
-```
+| 条件 | 输入给模型的内容 | 用途 |
+|---|---|---|
+| Base | 不提供外部上下文 | 测试模型自身能力 |
+| Oracle | 只提供 Gold evidence | 测试理想证据下的生成能力 |
+| Retrieved | 提供系统真实检索结果 | 测试完整 RAG 流程 |
 
 运行：
 
@@ -230,48 +223,50 @@ rageval diagnose \
   --output results/context_diagnosis.json
 ```
 
-诊断标签：
+系统会把问题标记为：
 
-| 标签 | 含义 |
-|---|---|
-| `generator_or_task_failure` | 即使使用 Oracle 证据也回答不好 |
-| `retrieval_or_context_failure` | Oracle 能回答，但真实检索上下文下失败 |
-| `context_harm` | 加入真实上下文后比无上下文更差 |
-| `pass` | 当前指标达到要求 |
+- `generator_or_task_failure`
+- `retrieval_or_context_failure`
+- `context_harm`
+- `pass`
 
-## 6. 校准 LLM Judge
+### 4. 校准 LLM Judge
 
-不要在未经验证时把 LLM Judge 的分数当作真值。先准备人工和 Judge 的二元标签：
+先准备一小部分人工标签：
 
 ```json
 {"query_id":"q1","claim_id":"c1","human_label":true,"judge_label":true}
 {"query_id":"q2","claim_id":"c1","human_label":false,"judge_label":true}
 ```
 
-运行：
+再运行：
 
 ```bash
-rageval calibrate examples/judge_labels.jsonl --output results/judge_calibration.json
+rageval calibrate \
+  examples/judge_labels.jsonl \
+  --output results/judge_calibration.json
 ```
 
-建议至少报告 Accuracy、Precision、Recall、F1 和 Cohen's κ，并人工检查 Judge 的假阳性与假阴性。
+不要在未经验证时直接把 Model Judge 当作真值。建议先检查 Accuracy、F1、Cohen's κ，以及 Judge 的假阳性和假阴性案例。
 
-## 7. 推荐实验流程
+---
+
+## 一套更稳妥的实验流程
 
 ```text
 1. 冻结 benchmark 和 corpus
 2. 给 query、document、claim 分配稳定 ID
-3. 先运行 validate，不调用任何付费模型
+3. 先运行严格校验，不调用付费模型
 4. 先做 retrieval-only baseline
-5. 再固定检索结果比较 generator/prompt
+5. 固定检索结果后，再比较 generator 或 prompt
 6. 运行 Base / Oracle / Retrieved 三条件
-7. 按 domain、language、difficulty、temporal_type 分层
-8. 输出 per-query 结果和失败案例
-9. 用配对置信区间和配对显著性检验比较
-10. 记录哈希、Git commit、随机种子、模型版本、Token 和成本
+7. 按领域、语言、难度和时间类型分层
+8. 保存 per-query 结果和失败案例
+9. 使用逐问题配对统计检验
+10. 记录哈希、Git commit、模型版本、Token、延迟和成本
 ```
 
-一次消融实验原则上只改变一个因素，例如：
+一次消融实验最好只改变一个因素，例如：
 
 - sparse / dense / hybrid；
 - fusion 方法；
@@ -284,9 +279,13 @@ rageval calibrate examples/judge_labels.jsonl --output results/judge_calibration
 - generator 或 prompt；
 - citation / abstention 策略。
 
-## 8. Codex Skill
+详细方法见：[评测方法指南](docs/methodology.md)。
 
-仓库自带项目级 Skill：
+---
+
+## Codex Skill
+
+仓库内置了项目级 Codex Skill：
 
 ```text
 .agents/skills/universal-rag-evaluator/SKILL.md
@@ -296,19 +295,40 @@ rageval calibrate examples/judge_labels.jsonl --output results/judge_calibration
 
 ```text
 使用 $universal-rag-evaluator 检查当前项目的 RAG 评测方案。
-先识别现有 benchmark、检索输出、回答输出和缓存，再给出最低成本的实验矩阵。
+先识别 benchmark、检索输出、回答输出和缓存，再给出最低成本的实验矩阵。
 在调用付费模型前先验证数据，并估算模型调用次数和 Token 上限。
 ```
 
-Skill 会要求实验固定变量、复用缓存、分别评测召回与回答、校准 Judge，并输出可复现 manifest。
+Skill 会帮助你：
 
-## 9. 项目结构
+- 检查数据是否满足评测要求；
+- 拆分召回侧和回答侧实验；
+- 规划 Base / Oracle / Retrieved 三条件；
+- 复用 retrieval、context、answer 和 judge 缓存；
+- 生成可复现的实验记录与报告。
+
+---
+
+## 文档导航
+
+| 文档 | 适合什么时候看 |
+|---|---|
+| [Data contract](docs/data-contract.md) | 准备 benchmark 和 system run 时 |
+| [Adapter guide](docs/adapters.md) | 把现有 RAG 输出转换为 JSONL 时 |
+| [Evaluation methodology](docs/methodology.md) | 设计消融实验和统计方法时 |
+| [Research methods](docs/research-methods.md) | 查看近两年论文方法如何映射到项目功能时 |
+| [Changelog](CHANGELOG.md) | 查看版本变化时 |
+| [Contributing](CONTRIBUTING.md) | 参与开发或新增指标时 |
+
+---
+
+## 项目结构
 
 ```text
 universal-rag-evaluator/
 ├── .agents/skills/             Codex 评测 Skill
-├── .github/workflows/ci.yml    Python 3.10–3.13 CI
-├── docs/                       数据协议、实验方法与论文方法映射
+├── .github/workflows/ci.yml    自动化测试
+├── docs/                       数据协议与实验方法
 ├── examples/                   可直接运行的示例
 ├── src/rageval_lab/            核心库和 CLI
 ├── tests/                      单元测试
@@ -317,21 +337,47 @@ universal-rag-evaluator/
 └── LICENSE
 ```
 
-## 10. 当前边界
+---
 
-- 本项目默认使用**确定性离线标签**，不会私自调用外部模型。
-- Claim 的语义等价、faithfulness 和 citation support 需要由人工或外部 Judge/规则适配器写入 run JSONL。
-- 当前检索指标使用文档级 relevance；passage/claim 级 evidence 可以通过更细粒度 `doc_id` 或扩展适配器表达。
-- 生产日志中含有隐私或商业数据时，应先脱敏再导出。
+## 当前边界
+
+为了让核心结果保持可复现，项目目前坚持以下原则：
+
+- 默认使用确定性离线标签，不会私自调用外部模型；
+- Claim 语义等价、faithfulness 和 citation support 需要由人工、规则或外部 Judge 提供；
+- 当前检索指标以文档级 relevance 为主；更细粒度评测可以使用 passage/claim 级 ID；
+- 生产日志含有隐私或商业数据时，应先脱敏再导出。
+
+这些边界不是限制项目扩展，而是为了避免评测工具在用户不知情的情况下引入额外模型、费用或不可复现因素。
 
 ---
 
 # English
 
+## What is Universal RAG Evaluator?
+
+Universal RAG Evaluator is a framework-agnostic toolkit for diagnosing and comparing RAG systems.
+
+Instead of reducing the whole pipeline to one answer score, it evaluates:
+
+- retrieval quality;
+- answer claims and completeness;
+- grounding and citations;
+- abstention behavior;
+- temporal correctness and distractors;
+- latency, tokens and estimated cost;
+- paired statistical significance;
+- agreement between human labels and model judges.
+
+It works with any RAG stack that can export one JSONL row per query. No direct model or vector-database access is required.
+
 ## Quick start
 
 ```bash
+git clone https://github.com/ghyholo/universal-rag-evaluator.git
+cd universal-rag-evaluator
 python -m pip install -e .
+
 rageval validate examples/gold.jsonl examples/run_a.jsonl --strict
 rageval evaluate examples/gold.jsonl examples/run_a.jsonl --output results/run_a.json
 ```
@@ -340,9 +386,11 @@ rageval evaluate examples/gold.jsonl examples/run_a.jsonl --output results/run_a
 
 ```bash
 # Evaluate one run
-rageval evaluate GOLD.jsonl RUN.jsonl --ks 1,3,5,10 --output results/run.json
+rageval evaluate GOLD.jsonl RUN.jsonl \
+  --ks 1,3,5,10 \
+  --output results/run.json
 
-# Paired comparison of two evaluated runs
+# Compare two evaluated runs
 rageval compare A.per_query.jsonl B.per_query.jsonl \
   --metrics answer_claim_f1,recall@5,citation_f1
 
@@ -350,21 +398,26 @@ rageval compare A.per_query.jsonl B.per_query.jsonl \
 rageval diagnose BASE.per_query.jsonl ORACLE.per_query.jsonl RETRIEVED.per_query.jsonl \
   --metric answer_claim_f1
 
-# Calibrate a binary model judge against human labels
+# Calibrate a binary model judge
 rageval calibrate JUDGE_LABELS.jsonl
 ```
 
-## Principles
+## Evaluation principles
 
 1. Evaluate retrieval and generation separately.
 2. Keep the benchmark and query set fixed.
 3. Change one experimental factor at a time.
-4. Save per-query outputs, not only averages.
-5. Use paired statistics for shared queries.
+4. Preserve per-query outputs, not only averages.
+5. Use paired statistics when systems share queries.
 6. Calibrate model judges against human annotations.
 7. Report latency, tokens and cost together with quality.
 
-See [`docs/methodology.md`](docs/methodology.md), [`docs/data-contract.md`](docs/data-contract.md), and [`docs/research-methods.md`](docs/research-methods.md) for details.
+For complete documentation, see:
+
+- [Data contract](docs/data-contract.md)
+- [Adapter guide](docs/adapters.md)
+- [Evaluation methodology](docs/methodology.md)
+- [Research method mapping](docs/research-methods.md)
 
 ## License
 
