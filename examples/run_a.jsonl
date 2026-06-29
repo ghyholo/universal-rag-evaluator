@@ -1,0 +1,2 @@
+{"query_id":"q1","answer":"Alice founded ExampleCo.","retrieved":[{"doc_id":"d1","rank":1,"text":"Alice founded ExampleCo."}],"predicted_claims":["Alice founded ExampleCo"],"citations":[{"claim":"Alice founded ExampleCo","doc_ids":["d1"]}],"latency_ms":400,"prompt_tokens":500,"completion_tokens":20}
+{"query_id":"q2","answer":"","abstained":true,"retrieved":[{"doc_id":"d9","rank":1,"text":"No 2025 revenue data."}],"predicted_claims":[],"citations":[],"latency_ms":300,"prompt_tokens":320,"completion_tokens":5}

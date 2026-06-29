@@ -1,0 +1,2 @@
+{"query_id":"q1","question":"Who founded ExampleCo?","gold_doc_ids":["d1"],"required_claims":["Alice founded ExampleCo"],"reference_answer":"Alice founded ExampleCo.","answerable":true,"slices":{"difficulty":"easy","language":"en"}}
+{"query_id":"q2","question":"What was ExampleCo revenue in 2025?","gold_doc_ids":[],"required_claims":[],"answerable":false,"as_of":"2025-12-31","slices":{"difficulty":"medium","temporal_type":"absolute"}}

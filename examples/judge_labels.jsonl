@@ -1,0 +1,4 @@
+{"query_id":"q1","claim_id":"c1","human_label":true,"judge_label":true}
+{"query_id":"q2","claim_id":"c1","human_label":false,"judge_label":true}
+{"query_id":"q3","claim_id":"c1","human_label":false,"judge_label":false}
+{"query_id":"q4","claim_id":"c1","human_label":true,"judge_label":true}
